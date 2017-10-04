@@ -1,6 +1,5 @@
 <?php
-header("Content-Type: application/json; charset=utf-8");
-
+// header("Content-Type: application/json; charset=utf-8");
 
 $mysqli = new mysqli("localhost", "root", "root", "BeastWords");
 $mysqli->query("SET NAMES 'utf8'");
@@ -11,34 +10,48 @@ if ($mysqli->connect_errno) {
 }
 
 $params = $_GET;
-$word = ($params['w']);
-$return = array();
+$word = $params['w'] ?? "";
+
+if (! $word) {
+    echo '語録がないゾ～';
+    exit();
+}
 
 $query = 'SELECT id, word, next_words_id FROM `words` WHERE `word` LIKE \'%' . $word . '%\'';
-
 if ($result = $mysqli->query($query)) {
     // リクエスト値に返答できる語録があるか
     if ($result->num_rows) {
+        // リクエスト内容を解析
         while ($row = $result->fetch_assoc()){
-            $candidate_words_id[] = $row['next_words_id'];
-        }
-        $next_words_id = $candidate_words_id[array_rand($candidate_words_id)];
-
-        $query = 'SELECT `word` FROM `words` WHERE `id` = ' . $next_words_id;
-
-        $result = $mysqli->query($query);
-        while ($row = $result->fetch_assoc()) {
-            echo $row["word"];
+            $request_words[] = $row['word'];
+            $next_words_ids[] = $row['next_words_id'];
         }
 
-    } else {
-        // 返答できる語録がない場合はランダムで返す
-        $query = 'SELECT `word` FROM `words` ORDER BY RAND() LIMIT 1';
+        // レスポンス内容を算出
+        $query = 'SELECT `word` FROM `words` WHERE `id` IN (' . implode(',', $next_words_ids) . ')';
         $result = $mysqli->query($query);
         while ($row = $result->fetch_assoc()) {
-            echo $row["word"];
+            $responce_words[] = $row['word'];
         }
     }
     $result->close();
 }
 $mysqli->close();
+
+?>
+
+<html lang="en">
+
+<table border="1" cellspacing="0" cellpadding="1" align="left">
+  <p>語録「<?= $word; ?>」</p>
+  <tr>
+    <th>候補</th><th>返答</th>
+  </tr>
+<?php for($i=0; $i<count($request_words); $i++) { ?>
+  <tr align="left">
+    <td><?= $request_words[$i]; ?></td>
+    <td><?= $responce_words[$i]; ?></td>
+  </tr>
+<?php } ?>
+</table>
+
